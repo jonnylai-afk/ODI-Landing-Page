@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FCL Load and Freight Calculator | OD International Ltd.</title>
+<meta name="description" content="Work out ocean freight cost per case and container utilization by weight and volume for up to five SKUs, across 20', 40' and 40' high cube dry and reefer containers.">
+<link rel="canonical" href="https://www.odinter.com/fcl-calculator.html">
+<meta name="theme-color" content="#022A52">
+<style>
+/* Layout: one working column in three bands. Container setup, then the SKU load sheet,
+   then a navy results band where the freight rate dial and its per-case output carry
+   the only amber on the page. Brand: ODI kit (cobalt, navy, Georgia headings, Arial data). */
+:root{
+  --bg:#F4F6F9; --surface:#FFFFFF; --ink:#1A1A1A; --heading:#022A52; --muted:#5E656C;
+  --line:#CFD6DD; --mist:#E6EAEE; --accent:#0257B3; --accent-ink:#FFFFFF; --tint:#E9F1FB;
+  --warn:#8A5A00; --crit:#B3261E;
+  --band:#022A52; --band-fg:#FFFFFF; --band-muted:#B7C8DC; --band-line:#234A75; --band-field:#0A3764;
+  --track:#1A4474; --gauge:#7DB6F2; --band-warn:#FFB26B; --band-crit:#FF8F85; --band-ok:#7FD8A8;
+  --amber:#E0A12E; --shadow:rgba(2,42,82,.28);
+  --display:Georgia,"Times New Roman",serif;
+  --ui:Arial,"Helvetica Neue",Helvetica,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1420; --surface:#111E2D; --ink:#E7ECF2; --heading:#DCE8F6; --muted:#9AA6B3;
+    --line:#2C3F54; --mist:#1B2A3B; --accent:#5BA3F2; --accent-ink:#06182B; --tint:#12304F;
+    --warn:#F0B85A; --crit:#FF8F85;
+    --band:#0F2743; --band-fg:#F2F6FA; --band-muted:#A9BBD0; --band-line:#27496E; --band-field:#0A1C31;
+    --track:#1C3B5E; --gauge:#7DB6F2; --band-warn:#FFB26B; --band-crit:#FF8F85; --band-ok:#7FD8A8;
+    --amber:#EDB24A; --shadow:rgba(0,0,0,.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1420; --surface:#111E2D; --ink:#E7ECF2; --heading:#DCE8F6; --muted:#9AA6B3;
+  --line:#2C3F54; --mist:#1B2A3B; --accent:#5BA3F2; --accent-ink:#06182B; --tint:#12304F;
+  --warn:#F0B85A; --crit:#FF8F85;
+  --band:#0F2743; --band-fg:#F2F6FA; --band-muted:#A9BBD0; --band-line:#27496E; --band-field:#0A1C31;
+  --track:#1C3B5E; --gauge:#7DB6F2; --band-warn:#FFB26B; --band-crit:#FF8F85; --band-ok:#7FD8A8;
+  --amber:#EDB24A; --shadow:rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin-inline:auto;padding-inline:20px;padding-block:28px 48px;display:flex;flex-direction:column;gap:22px}
+h1,h2{font-family:var(--display);color:var(--heading);margin:0;text-wrap:balance}
+h1{font-size:1.75rem;line-height:1.2}
+h2{font-size:1.15rem}
+p{margin:0}
+.lede{color:var(--muted);max-width:62ch;margin-top:6px}
+.num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.panel-head{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.cap{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+/* floating load totals: stays at the top while the SKU sheet scrolls under it */
+.float{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 8px);z-index:10;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  background:var(--band);color:var(--band-fg);border:1px solid var(--band-line);border-radius:6px;box-shadow:0 6px 18px var(--shadow)}
+.float .cell{padding:10px 16px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.float .cell + .cell{border-left:1px solid var(--band-line)}
+.float .cap{color:var(--band-muted)}
+.float .row{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px}
+.float .vals{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0}
+.float .main{font-size:1.2rem;font-weight:700;font-variant-numeric:tabular-nums}
+.float .alt{color:var(--band-muted);font-size:.85rem;font-variant-numeric:tabular-nums}
+.float .pct{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.float .pct.warn{color:var(--band-warn)}
+.float .pct.crit{color:var(--band-crit)}
+.float .bar{height:5px;margin-top:auto}
+
+/* segmented toggles */
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--surface)}
+.seg label{position:relative;cursor:pointer}
+.seg label + label{border-left:1px solid var(--line)}
+.seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.seg span{display:block;padding:.5rem .85rem;font-weight:700;font-size:.9rem;color:var(--ink)}
+.seg input:checked + span{background:var(--accent);color:var(--accent-ink)}
+.seg input:focus-visible + span{outline:2px solid var(--ink);outline-offset:-4px}
+.seg.sm span{padding:.32rem .6rem;font-size:.8rem}
+.band .seg{border-color:var(--band-line);background:var(--band-field)}
+.band .seg label + label{border-left-color:var(--band-line)}
+.band .seg span{color:var(--band-fg)}
+.band .seg input:checked + span{background:var(--band-fg);color:var(--band)}
+.band .seg input:focus-visible + span{outline-color:var(--amber)}
+
+.choices{display:flex;flex-wrap:wrap;gap:14px 28px}
+.choice{display:flex;flex-direction:column;gap:6px}
+
+/* container spec plate */
+.plate{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+.plate > div{padding:10px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.plate > div + div{border-left:1px solid var(--line)}
+.plate .val{font-size:1.05rem;font-weight:700}
+.unit-in{display:flex;align-items:center;gap:6px}
+.unit-in input{max-width:7.5rem}
+.unit-in .u{color:var(--muted);font-size:.85rem}
+.plate-note{color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+
+input[type="text"],input[type="number"]{
+  width:100%;min-width:0;font:inherit;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:4px;padding:.42rem .5rem
+}
+input[type="number"]{text-align:right;-moz-appearance:textfield;appearance:textfield}
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input.qty{background:var(--tint);border-color:var(--accent);font-weight:700}
+input::placeholder{color:var(--muted);opacity:.75;font-weight:400}
+
+button.btn{font:inherit;font-weight:700;font-size:.85rem;color:var(--accent);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.4rem .75rem;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.link{font:inherit;color:var(--accent);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+
+/* SKU load sheet */
+.tools{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.tools .pair{display:flex;align-items:center;gap:6px}
+.note{background:var(--tint);border-radius:4px;padding:.5rem .75rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:4px 10px}
+.sku-head,.sku{display:grid;grid-template-columns:1.4rem minmax(0,2.1fr) repeat(3,minmax(0,.75fr)) minmax(0,.95fr) minmax(0,.95fr) minmax(0,2.1fr);gap:8px;align-items:center}
+.sku-head{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.du,.wu{font-style:normal;text-transform:none}
+.sku-head span{text-align:right}
+.sku-head span.l{text-align:left}
+.sku{padding-block:8px;border-top:1px solid var(--mist)}
+.sku .no{font-weight:700;color:var(--muted)}
+.sku .no-word{display:none}
+.fld{min-width:0}
+.fld .fl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.readout{font-size:.82rem;color:var(--muted);line-height:1.35;min-width:0;font-variant-numeric:tabular-nums}
+.readout b{color:var(--ink);font-weight:700}
+.readout.bad{color:var(--crit);font-weight:700}
+
+/* results band */
+.band{background:var(--band);color:var(--band-fg);border-radius:6px;padding:22px 20px;display:flex;flex-direction:column;gap:22px}
+.band h2{color:var(--band-fg)}
+.band .cap{color:var(--band-muted)}
+.band-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:26px 36px;align-items:start}
+.rate{display:flex;flex-direction:column;gap:10px;min-width:0}
+.rate-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rate-row .pre,.rate-row .post{color:var(--band-muted);font-size:.9rem}
+.band input[type="number"]{background:var(--band-field);border-color:var(--band-line);color:var(--band-fg);font-weight:700;font-size:1.15rem;width:8rem}
+.band input:focus-visible,.band button:focus-visible{outline-color:var(--amber)}
+
+input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0;cursor:pointer}
+input[type="range"]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(to right,var(--amber) var(--p,0%),var(--track) var(--p,0%))}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--band-fg);border:3px solid var(--amber);margin-top:-8px}
+input[type="range"]::-moz-range-track{height:6px;border-radius:3px;background:var(--track)}
+input[type="range"]::-moz-range-progress{height:6px;border-radius:3px;background:var(--amber)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--band-fg);border:3px solid var(--amber)}
+.ticks{display:flex;justify-content:space-between;padding-inline:11px;font-size:.72rem;color:var(--band-muted);font-variant-numeric:tabular-nums}
+.ticks span{width:0;display:flex;justify-content:center;white-space:nowrap}
+
+.headline{border-top:1px solid var(--band-line);padding-top:14px;display:flex;flex-direction:column;gap:2px}
+.headline .big{font-family:var(--display);font-weight:700;font-size:2.9rem;line-height:1.1;color:var(--amber);font-variant-numeric:tabular-nums}
+.headline .sub{color:var(--band-muted);font-size:.88rem}
+
+.gauges{display:flex;flex-direction:column;gap:20px;min-width:0}
+.gauge{display:flex;flex-direction:column;gap:6px}
+.g-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.g-val{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.g-val .main{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.g-val .alt{color:var(--band-muted);font-variant-numeric:tabular-nums}
+.g-pct{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.bar{position:relative;height:12px;border-radius:2px;background:var(--track)}
+.fill{height:100%;border-radius:2px;background:var(--gauge);width:0}
+.fill.warn{background:var(--band-warn)}
+.fill.crit{background:var(--band-crit)}
+.tick{position:absolute;top:-3px;bottom:-3px;left:90%;width:2px;background:var(--band-fg)}
+.scale{position:relative;height:1.1rem;font-size:.72rem;color:var(--band-muted)}
+.scale span{position:absolute;right:10%;white-space:nowrap}
+.g-foot{color:var(--band-muted);font-size:.88rem;font-variant-numeric:tabular-nums}
+
+.verdict{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline;border:1px solid var(--band-line);border-radius:5px;padding:12px 14px;background:var(--band-field)}
+.chip{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;font-weight:700;border:1.5px solid currentColor;border-radius:3px;padding:.12rem .45rem;color:var(--gauge);white-space:nowrap}
+.chip.ok{color:var(--band-ok)} .chip.warn{color:var(--band-warn)} .chip.crit{color:var(--band-crit)} .chip.idle{color:var(--band-muted)}
+.verdict p{flex:1 1 20rem;min-width:0}
+
+.split{display:flex;flex-direction:column;gap:10px;min-width:0}
+.split-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--band-line);white-space:nowrap}
+th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--band-muted);font-weight:700}
+th:first-child,td:first-child{text-align:left;white-space:normal;padding-left:0}
+td.pc{color:var(--amber);font-weight:700}
+tfoot td{font-weight:700;border-bottom:0;border-top:1px solid var(--band-muted)}
+td.empty{text-align:left;color:var(--band-muted)}
+
+.notes{color:var(--muted);font-size:.86rem;display:flex;flex-direction:column;gap:8px}
+.notes ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:4px;max-width:86ch}
+.notes a{color:var(--accent)}
+
+@media (max-width:760px){
+  .wrap{padding-inline:16px}
+  h1{font-size:1.45rem}
+  .panel{padding:16px}
+  input[type="text"],input[type="number"]{font-size:16px}
+  .plate{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .plate > div + div{border-left:0}
+  .plate > div:nth-child(even){border-left:1px solid var(--line)}
+  .plate > div:nth-child(n+3){border-top:1px solid var(--line)}
+  .sku-head{display:none}
+  .sku{grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;padding-block:14px;gap:10px 8px}
+  .sku .no{grid-column:1/-1}
+  .sku .no-word{display:inline}
+  .f-name{grid-column:1/-1}
+  .f-l,.f-w,.f-h{grid-column:span 2}
+  .f-gw,.f-qty{grid-column:span 3}
+  .readout{grid-column:1/-1}
+  .fld .fl{position:static;width:auto;height:auto;overflow:visible;clip-path:none;display:block;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+  .float .cell{padding:8px 12px}
+  .float .main{font-size:1.05rem}
+  .band{padding:18px 16px}
+  .band-grid{grid-template-columns:minmax(0,1fr)}
+  .headline .big{font-size:2.4rem}
+}
+@media (prefers-reduced-motion:no-preference){
+  .fill{transition:width .18s ease-out}
+}
+
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+[hidden]{display:none!important}
+.sitebar{background:var(--band);color:var(--band-fg);border-bottom:1px solid var(--band-line)}
+.sitebar-in{max-width:1080px;margin-inline:auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between}
+.sitebar a{color:var(--band-fg);text-decoration:none}
+.sitebar .brand{font-family:var(--display);font-weight:700;font-size:1.05rem}
+.sitebar .home{font-size:.88rem;color:var(--band-muted)}
+.sitebar a:hover{text-decoration:underline}
+.sitebar a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.sitefoot{color:var(--muted);font-size:.82rem;border-top:1px solid var(--line);padding-top:14px;max-width:86ch}
+@media (max-width:760px){.sitebar-in{padding-inline:16px}}
+</style>
+</head>
+<body>
+<div class="sitebar"><div class="sitebar-in">
+  <a class="brand" href="/">OD International Ltd.</a>
+  <a class="home" href="/">Back to odinter.com</a>
+</div></div>
+
+
+<div class="wrap">
+  <header>
+    <h1>FCL Load and Freight Calculator</h1>
+    <p class="lede">Enter case dimensions, gross weight and case quantity for up to five SKUs. Pick the container, set the ocean freight rate, and read the freight cost per case and how full the box is.</p>
+  </header>
+
+  <section class="float" aria-label="Load totals">
+    <div class="cell">
+      <div class="row"><span class="cap">Total mass</span><span class="pct" id="fw-wt-pct">—</span></div>
+      <div class="vals"><span class="main" id="fw-wt-main">—</span><span class="alt" id="fw-wt-alt"></span></div>
+      <div class="bar"><div class="fill" id="fw-wt-fill"></div></div>
+    </div>
+    <div class="cell">
+      <div class="row"><span class="cap">Total volume</span><span class="pct" id="fw-vol-pct">—</span></div>
+      <div class="vals"><span class="main" id="fw-vol-main">—</span><span class="alt" id="fw-vol-alt"></span></div>
+      <div class="bar"><div class="fill" id="fw-vol-fill"></div></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-container">
+    <h2 id="h-container">Container</h2>
+    <div class="choices">
+      <div class="choice">
+        <span class="cap" id="lab-mode">Service</span>
+        <div class="seg" role="radiogroup" aria-labelledby="lab-mode">
+          <label><input type="radio" name="mode" id="mode-dry" value="dry" checked><span>Dry</span></label>
+          <label><input type="radio" name="mode" id="mode-reefer" value="reefer"><span>Reefer</span></label>
+        </div>
+      </div>
+      <div class="choice">
+        <span class="cap" id="lab-ctype">Container type</span>
+        <div class="seg" role="radiogroup" aria-labelledby="lab-ctype" id="ctype-seg"></div>
+      </div>
+    </div>
+    <div class="plate">
+      <div>
+        <label class="cap" for="cap-cbm">Cubic capacity</label>
+        <div class="unit-in"><input type="number" id="cap-cbm" inputmode="decimal" min="0" step="any"><span class="u">CBM</span></div>
+      </div>
+      <div>
+        <label class="cap" for="cap-kg">Max payload</label>
+        <div class="unit-in"><input type="number" id="cap-kg" inputmode="decimal" min="0" step="any"><span class="u">kg</span></div>
+      </div>
+      <div><span class="cap">Tare</span><span class="val num" id="spec-tare"></span></div>
+      <div><span class="cap">Max gross</span><span class="val num" id="spec-gross"></span></div>
+    </div>
+    <p class="plate-note"><span id="plate-text">Typical carrier figures. Edit capacity or payload to match your booking or a road weight limit.</span> <button type="button" class="link" id="btn-reset-spec" hidden>Reset to typical</button></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-skus">
+    <div class="panel-head">
+      <h2 id="h-skus">SKUs</h2>
+      <div class="tools">
+        <div class="pair"><span class="cap" id="lab-dim">Dimensions in</span>
+          <div class="seg sm" role="radiogroup" aria-labelledby="lab-dim">
+            <label><input type="radio" name="dimunit" id="dim-cm" value="cm" checked><span>cm</span></label>
+            <label><input type="radio" name="dimunit" id="dim-in" value="in"><span>in</span></label>
+          </div>
+        </div>
+        <div class="pair"><span class="cap" id="lab-wt">Weight in</span>
+          <div class="seg sm" role="radiogroup" aria-labelledby="lab-wt">
+            <label><input type="radio" name="wtunit" id="wt-kg" value="kg" checked><span>kg</span></label>
+            <label><input type="radio" name="wtunit" id="wt-lb" value="lb"><span>lb</span></label>
+          </div>
+        </div>
+        <button type="button" class="btn" id="btn-clear">Clear all</button>
+      </div>
+    </div>
+    <p class="note" id="sku-note" hidden><span id="sku-note-text"></span> <button type="button" class="link" id="btn-undo" hidden>Undo</button></p>
+    <div>
+      <div class="sku-head" aria-hidden="true">
+        <span class="l">#</span><span class="l">SKU or description</span>
+        <span>L (<i class="du">cm</i>)</span><span>W (<i class="du">cm</i>)</span><span>H (<i class="du">cm</i>)</span>
+        <span>Gross (<i class="wu">kg</i>)</span><span>Cases</span><span class="l">Per case and line total</span>
+      </div>
+      <div id="sku-rows"></div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="h-results">
+    <h2 id="h-results">Results</h2>
+    <div class="band-grid">
+      <div class="rate">
+        <label class="cap" for="rate-num">Ocean freight rate</label>
+        <div class="rate-row">
+          <span class="pre">USD</span>
+          <input type="number" id="rate-num" inputmode="decimal" min="0" max="20000" step="1">
+          <span class="post">per container</span>
+        </div>
+        <div>
+          <input type="range" id="rate-range" min="0" max="20000" step="50" aria-label="Ocean freight rate, USD 0 to 20,000">
+          <div class="ticks" aria-hidden="true"><span>0</span><span>5,000</span><span>10,000</span><span>15,000</span><span>20,000</span></div>
+        </div>
+        <div class="headline">
+          <span class="cap">Freight cost per case</span>
+          <span class="big" id="per-case">—</span>
+          <span class="sub" id="per-case-sub"></span>
+        </div>
+      </div>
+
+      <div class="gauges">
+        <div class="gauge">
+          <div class="g-top"><span class="cap">Total mass</span><span class="g-pct" id="wt-pct">—</span></div>
+          <div class="g-val"><span class="main" id="wt-main">—</span><span class="alt" id="wt-alt"></span></div>
+          <div class="bar"><div class="fill" id="wt-fill"></div></div>
+          <div class="g-foot" id="wt-foot"></div>
+        </div>
+        <div class="gauge">
+          <div class="g-top"><span class="cap">Total volume</span><span class="g-pct" id="vol-pct">—</span></div>
+          <div class="g-val"><span class="main" id="vol-main">—</span><span class="alt" id="vol-alt"></span></div>
+          <div>
+            <div class="bar"><div class="fill" id="vol-fill"></div><div class="tick"></div></div>
+            <div class="scale" aria-hidden="true"><span>practical limit when floor-loaded, about 90%</span></div>
+          </div>
+          <div class="g-foot" id="vol-foot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict" role="status">
+      <span class="chip idle" id="verdict-chip">No load</span>
+      <p id="verdict-text"></p>
+    </div>
+
+    <div class="split">
+      <div class="split-head">
+        <span class="cap" id="lab-basis">Freight per case by SKU, split by</span>
+        <div class="seg sm" role="radiogroup" aria-labelledby="lab-basis">
+          <label><input type="radio" name="basis" id="basis-volume" value="volume" checked><span>Volume</span></label>
+          <label><input type="radio" name="basis" id="basis-weight" value="weight"><span>Weight</span></label>
+          <label><input type="radio" name="basis" id="basis-case" value="case"><span>Case count</span></label>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>SKU</th><th>Cases</th><th>CBM</th><th>kg</th><th>Share</th><th>Freight USD</th><th>USD per case</th></tr></thead>
+          <tbody id="split-body"></tbody>
+          <tfoot id="split-foot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="notes" aria-label="Assumptions">
+    <span class="cap">Assumptions</span>
+    <ul>
+      <li>Dimensions and gross weight are per shipping case (master carton). Rows with any blank field are left out of the totals.</li>
+      <li>Volume is carton cube against the container's nominal capacity. Floor-loaded cartons usually reach about 85 to 92% of nominal cube, and palletized loads reach less.</li>
+      <li>Payload is the container's rated limit. Road and rail weight limits on the delivery leg can be lower, so confirm the legal cargo weight with your drayage carrier.</li>
+      <li>Reefer cargo must stay below the load line and leave room for air flow, so usable cube is below the nominal figure.</li>
+      <li>The headline cost per case is the rate divided by total cases. The SKU table splits the same rate by each SKU's share of volume, weight or case count.</li>
+      <li>Container figures are Hapag-Lloyd's published examples for the
+        <a href="https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/20-standard.html">20' standard</a>,
+        <a href="https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/40-standard.html">40' standard</a>,
+        <a href="https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/40-standard-high-cube.html">40' high cube</a>,
+        <a href="https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/20-reefer.html">20' reefer</a> and
+        <a href="https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/40-reefer-high-cube.html">40' reefer high cube</a>.
+        Boxes vary by manufacturer and carrier.</li>
+    </ul>
+  </section>
+  <p class="sitefoot">Planning estimate only. Confirm freight rates, container specifications, legal cargo weights and the stow plan with your forwarder and carrier before booking. &copy; OD International Ltd.</p>
+</div>
+
+<script>
+(function(){
+  var N = 5, KEY = 'fcl-load-calc-v1', RATE_MAX = 20000;
+  var CONTAINERS = {
+    dry: [
+      {id:'20GP', label:"20' Standard",  cbm:33.2, payload:28130, tare:2350, gross:30480},
+      {id:'40GP', label:"40' Standard",  cbm:67.7, payload:28750, tare:3750, gross:32500},
+      {id:'40HC', label:"40' High Cube", cbm:76.3, payload:28600, tare:3900, gross:32500}
+    ],
+    reefer: [
+      {id:'20RF', label:"20' Reefer",           cbm:28.1, payload:29140, tare:2860, gross:32000},
+      {id:'40RH', label:"40' Reefer High Cube", cbm:67.7, payload:29580, tare:4420, gross:34000}
+    ]
+  };
+  var DEFAULT_TYPE = {dry:'40HC', reefer:'40RH'};
+  var EXAMPLE = [
+    {name:'Oyster sauce 12 x 510 g',    l:'30', w:'23', h:'22', gw:'9.6',  qty:'900'},
+    {name:'Light soy sauce 12 x 500 mL',l:'31', w:'24', h:'26', gw:'11.8', qty:'700'},
+    {name:'Rice vermicelli 30 x 400 g', l:'48', w:'32', h:'28', gw:'13.2', qty:'450'}
+  ];
+  var FIELDS = ['name','l','w','h','gw','qty'];
+  var LB_PER_KG = 2.2046226218;
+
+  /*CALC-START*/
+  function parsePos(raw){
+    if (raw === null || raw === undefined || String(raw).trim() === '') return {empty:true, ok:false, v:null};
+    var v = parseFloat(raw);
+    if (!isFinite(v) || v <= 0) return {empty:false, ok:false, v:null};
+    return {empty:false, ok:true, v:v};
+  }
+  function compute(inp){
+    var dimF = inp.dimUnit === 'in' ? 0.0254 : 0.01;          // to metres
+    var wtF  = inp.wtUnit === 'lb' ? 0.45359237 : 1;           // to kg
+    var names = {l:'length', w:'width', h:'height', gw:'gross weight', qty:'cases'};
+    var rows = inp.skus.map(function(s, i){
+      var p = {l:parsePos(s.l), w:parsePos(s.w), h:parsePos(s.h), gw:parsePos(s.gw), qty:parsePos(s.qty)};
+      var keys = ['l','w','h','gw','qty'];
+      var allEmpty = keys.every(function(k){ return p[k].empty; });
+      var missing = keys.filter(function(k){ return !p[k].ok; }).map(function(k){ return names[k]; });
+      var qty = p.qty.ok ? Math.floor(p.qty.v) : 0;
+      if (p.qty.ok && qty < 1 && missing.indexOf('cases') < 0) missing.push('cases');
+      var row = {i:i, name:(s.name || '').trim() || ('SKU ' + (i + 1)), status:'empty', missing:missing};
+      if (allEmpty) return row;
+      if (missing.length) { row.status = 'incomplete'; return row; }
+      row.status = 'ok';
+      row.qty = qty;
+      row.cbmCase = p.l.v * p.w.v * p.h.v * dimF * dimF * dimF;
+      row.kgCase = p.gw.v * wtF;
+      row.cbm = row.cbmCase * qty;
+      row.kg = row.kgCase * qty;
+      return row;
+    });
+    var ok = rows.filter(function(r){ return r.status === 'ok'; });
+    var t = {cases:0, cbm:0, kg:0};
+    ok.forEach(function(r){ t.cases += r.qty; t.cbm += r.cbm; t.kg += r.kg; });
+    var rate = Math.min(Math.max(isFinite(inp.rate) ? inp.rate : 0, 0), 20000);
+    ok.forEach(function(r){
+      var share = inp.basis === 'weight' ? (t.kg ? r.kg / t.kg : 0)
+                : inp.basis === 'case'   ? (t.cases ? r.qty / t.cases : 0)
+                : (t.cbm ? r.cbm / t.cbm : 0);
+      r.share = share;
+      r.freight = rate * share;
+      r.perCase = r.freight / r.qty;
+    });
+    var cap = inp.capCbm > 0 ? inp.capCbm : null, pay = inp.payloadKg > 0 ? inp.payloadKg : null;
+    return {
+      rows:rows, ok:ok, rate:rate,
+      cases:t.cases, cbm:t.cbm, kg:t.kg, lb:t.kg * 2.2046226218,
+      cap:cap, pay:pay,
+      pctVol: cap ? t.cbm / cap * 100 : null,
+      pctWt:  pay ? t.kg / pay * 100 : null,
+      perCase: t.cases ? rate / t.cases : null
+    };
+  }
+  /*CALC-END*/
+
+  var $ = function(id){ return document.getElementById(id); };
+  var nf = function(d){ return new Intl.NumberFormat('en-CA', {minimumFractionDigits:d, maximumFractionDigits:d}); };
+  var f0 = nf(0), f1 = nf(1), f2 = nf(2), f4 = nf(4);
+  var esc = function(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var usd = function(n){ return 'US$' + f2.format(n); };
+
+  var state = {
+    mode:'dry', ctype:'40HC', cap:'', pay:'', dimUnit:'cm', wtUnit:'kg', rate:2900, basis:'volume',
+    example:true, skus:[]
+  };
+  var undoSnapshot = null;
+
+  function blankSkus(){ var a = []; for (var i = 0; i < N; i++) a.push({name:'',l:'',w:'',h:'',gw:'',qty:''}); return a; }
+  function exampleSkus(){ var a = blankSkus(); EXAMPLE.forEach(function(e, i){ a[i] = Object.assign({}, e); }); return a; }
+  function spec(){
+    var list = CONTAINERS[state.mode];
+    return list.filter(function(c){ return c.id === state.ctype; })[0] || list[list.length - 1];
+  }
+
+  function load(){
+    state.skus = exampleSkus();
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (!s || !Array.isArray(s.skus)) return;
+      ['mode','ctype','cap','pay','dimUnit','wtUnit','basis'].forEach(function(k){ if (typeof s[k] === 'string') state[k] = s[k]; });
+      if (isFinite(s.rate)) state.rate = Math.min(Math.max(+s.rate, 0), RATE_MAX);
+      state.example = !!s.example;
+      state.skus = blankSkus().map(function(b, i){
+        var r = s.skus[i] || {}; FIELDS.forEach(function(k){ if (typeof r[k] === 'string') b[k] = r[k]; }); return b;
+      });
+      if (!CONTAINERS[state.mode]) state.mode = 'dry';
+    } catch (e) { /* storage unavailable: start from the example */ }
+  }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function buildRows(){
+    var html = '';
+    for (var i = 1; i <= N; i++) {
+      html += '<div class="sku">' +
+        '<span class="no"><span class="no-word">SKU </span>' + i + '</span>' +
+        '<div class="fld f-name"><label class="fl" for="sku' + i + '-name">SKU or description</label><input type="text" id="sku' + i + '-name" autocomplete="off" placeholder="Optional"></div>' +
+        '<div class="fld f-l"><label class="fl" for="sku' + i + '-l">L (<i class="du">cm</i>)</label><input type="number" id="sku' + i + '-l" inputmode="decimal" min="0" step="any"></div>' +
+        '<div class="fld f-w"><label class="fl" for="sku' + i + '-w">W (<i class="du">cm</i>)</label><input type="number" id="sku' + i + '-w" inputmode="decimal" min="0" step="any"></div>' +
+        '<div class="fld f-h"><label class="fl" for="sku' + i + '-h">H (<i class="du">cm</i>)</label><input type="number" id="sku' + i + '-h" inputmode="decimal" min="0" step="any"></div>' +
+        '<div class="fld f-gw"><label class="fl" for="sku' + i + '-gw">Gross (<i class="wu">kg</i>)</label><input type="number" id="sku' + i + '-gw" inputmode="decimal" min="0" step="any"></div>' +
+        '<div class="fld f-qty"><label class="fl" for="sku' + i + '-qty">Cases</label><input type="number" class="qty" id="sku' + i + '-qty" inputmode="numeric" min="0" step="1" placeholder="Qty"></div>' +
+        '<div class="readout" id="sku' + i + '-out"></div>' +
+      '</div>';
+    }
+    $('sku-rows').innerHTML = html;
+  }
+  function buildTypes(){
+    $('ctype-seg').innerHTML = CONTAINERS[state.mode].map(function(c){
+      return '<label><input type="radio" name="ctype" id="ct-' + c.id + '" value="' + c.id + '"' +
+        (c.id === state.ctype ? ' checked' : '') + '><span>' + c.label + '</span></label>';
+    }).join('');
+  }
+  function writeInputs(){
+    $('mode-' + state.mode).checked = true;
+    $('dim-' + state.dimUnit).checked = true;
+    $('wt-' + state.wtUnit).checked = true;
+    $('basis-' + state.basis).checked = true;
+    state.skus.forEach(function(s, i){ FIELDS.forEach(function(k){ $('sku' + (i + 1) + '-' + k).value = s[k]; }); });
+    var c = spec();
+    $('cap-cbm').value = state.cap !== '' ? state.cap : c.cbm;
+    $('cap-kg').value = state.pay !== '' ? state.pay : c.payload;
+    $('rate-num').value = state.rate;
+    $('rate-range').value = state.rate;
+  }
+  function readSkus(){
+    state.skus = state.skus.map(function(s, i){
+      var o = {}; FIELDS.forEach(function(k){ o[k] = $('sku' + (i + 1) + '-' + k).value; }); return o;
+    });
+  }
+
+  function setFill(el, pct, warnAt){
+    el.style.width = (pct === null ? 0 : Math.min(Math.max(pct, 0), 100)) + '%';
+    el.className = 'fill' + (pct > 100 ? ' crit' : pct > warnAt ? ' warn' : '');
+  }
+  function verdict(r){
+    if (!r.cases) return {level:'idle', chip:'No load', text:'Enter dimensions, gross weight and case quantity for at least one SKU.'};
+    var v = r.pctVol, w = r.pctWt;
+    if (v === null || w === null) return {level:'idle', chip:'Check container', text:'Enter a cubic capacity and a payload above zero for the container.'};
+    var lead = w >= v
+      ? 'Weight is the limiting factor (' + f1.format(w) + '% of payload against ' + f1.format(v) + '% of cube).'
+      : 'Volume is the limiting factor (' + f1.format(v) + '% of cube against ' + f1.format(w) + '% of payload).';
+    if (v > 100 || w > 100) {
+      var over = [];
+      if (v > 100) over.push(f2.format(r.cbm - r.cap) + ' CBM over capacity');
+      if (w > 100) over.push(f0.format(r.kg - r.pay) + ' kg over payload');
+      return {level:'crit', chip:'Does not fit', text:'This load is ' + over.join(' and ') + '. Cut cases, split the shipment or move to a larger container.'};
+    }
+    if (v > 92 || w > 95) return {level:'warn', chip:'Tight', text:lead + ' Confirm the stow plan and weight with your forwarder before booking.'};
+    if (v >= 85 || w >= 85) return {level:'ok', chip:'Well loaded', text:lead + ' The container is used efficiently.'};
+    return {level:'', chip:'Room to add', text:lead + ' There is room for about ' + f1.format(r.cap * 0.9 - r.cbm > 0 ? r.cap * 0.9 - r.cbm : 0) +
+      ' CBM more at a practical 90% fill, or ' + f0.format(r.pay - r.kg) + ' kg more before payload.'};
+  }
+
+  function render(){
+    var c = spec();
+    var capVal = parseFloat($('cap-cbm').value), payVal = parseFloat($('cap-kg').value);
+    var r = compute({dimUnit:state.dimUnit, wtUnit:state.wtUnit, skus:state.skus, rate:state.rate, basis:state.basis, capCbm:capVal, payloadKg:payVal});
+
+    // container plate
+    $('spec-tare').textContent = f0.format(c.tare) + ' kg';
+    $('spec-gross').textContent = f0.format(c.gross) + ' kg';
+    var edited = capVal !== c.cbm || payVal !== c.payload;
+    $('btn-reset-spec').hidden = !edited;
+    $('plate-text').textContent = edited
+      ? 'Capacity or payload edited. Typical for this box: ' + f1.format(c.cbm) + ' CBM, ' + f0.format(c.payload) + ' kg.'
+      : 'Typical carrier figures. Edit capacity or payload to match your booking or a road weight limit.';
+
+    // unit labels
+    Array.prototype.forEach.call(document.querySelectorAll('.du'), function(e){ e.textContent = state.dimUnit; });
+    Array.prototype.forEach.call(document.querySelectorAll('.wu'), function(e){ e.textContent = state.wtUnit; });
+
+    // row readouts
+    r.rows.forEach(function(row){
+      var out = $('sku' + (row.i + 1) + '-out');
+      if (row.status === 'ok') {
+        out.className = 'readout';
+        out.innerHTML = f4.format(row.cbmCase) + ' CBM, ' + f2.format(row.kgCase) + ' kg per case<br><b>' +
+          f2.format(row.cbm) + ' CBM, ' + f0.format(row.kg) + ' kg total</b>';
+      } else if (row.status === 'incomplete') {
+        out.className = 'readout bad';
+        out.textContent = 'Not counted. Enter ' + row.missing.join(', ') + '.';
+      } else {
+        out.className = 'readout';
+        out.textContent = '';
+      }
+    });
+
+    // rate and headline
+    $('rate-range').style.setProperty('--p', (r.rate / RATE_MAX * 100) + '%');
+    $('per-case').textContent = r.perCase === null ? '—' : usd(r.perCase);
+    $('per-case-sub').textContent = r.perCase === null
+      ? 'Add case quantities to see the cost per case.'
+      : 'US$' + f0.format(r.rate) + ' ÷ ' + f0.format(r.cases) + ' cases, blended across ' + r.ok.length + (r.ok.length === 1 ? ' SKU' : ' SKUs');
+
+    // mass
+    $('wt-main').textContent = f0.format(r.kg) + ' kg';
+    $('wt-alt').textContent = f0.format(r.lb) + ' lb';
+    $('wt-pct').textContent = r.pctWt === null ? '—' : f1.format(r.pctWt) + '%';
+    setFill($('wt-fill'), r.pctWt, 95);
+    $('wt-foot').textContent = r.pay === null ? 'Enter a payload above zero.'
+      : 'of ' + f0.format(r.pay) + ' kg (' + f0.format(r.pay * LB_PER_KG) + ' lb) payload. ' +
+        (r.kg > r.pay ? f0.format(r.kg - r.pay) + ' kg over.' : f0.format(r.pay - r.kg) + ' kg remaining.');
+
+    // volume
+    $('vol-main').textContent = f2.format(r.cbm) + ' CBM';
+    $('vol-alt').textContent = f0.format(r.cbm * 35.3146667) + ' cu ft';
+    $('vol-pct').textContent = r.pctVol === null ? '—' : f1.format(r.pctVol) + '%';
+    setFill($('vol-fill'), r.pctVol, 92);
+    $('vol-foot').textContent = r.cap === null ? 'Enter a cubic capacity above zero.'
+      : 'of ' + f1.format(r.cap) + ' CBM capacity. ' +
+        (r.cbm > r.cap ? f2.format(r.cbm - r.cap) + ' CBM over.' : f2.format(r.cap - r.cbm) + ' CBM remaining.');
+
+    // floating totals
+    var pctCls = function(p, warnAt){ return 'pct' + (p > 100 ? ' crit' : p > warnAt ? ' warn' : ''); };
+    $('fw-wt-main').textContent = f0.format(r.kg) + ' kg';
+    $('fw-wt-alt').textContent = f0.format(r.lb) + ' lb';
+    $('fw-wt-pct').textContent = r.pctWt === null ? '—' : f1.format(r.pctWt) + '% of payload';
+    $('fw-wt-pct').className = pctCls(r.pctWt, 95);
+    setFill($('fw-wt-fill'), r.pctWt, 95);
+    $('fw-vol-main').textContent = f2.format(r.cbm) + ' CBM';
+    $('fw-vol-alt').textContent = f0.format(r.cbm * 35.3146667) + ' cu ft';
+    $('fw-vol-pct').textContent = r.pctVol === null ? '—' : f1.format(r.pctVol) + '% of capacity';
+    $('fw-vol-pct').className = pctCls(r.pctVol, 92);
+    setFill($('fw-vol-fill'), r.pctVol, 92);
+
+    // verdict
+    var v = verdict(r);
+    $('verdict-chip').className = 'chip' + (v.level ? ' ' + v.level : '');
+    $('verdict-chip').textContent = v.chip;
+    $('verdict-text').textContent = v.text;
+
+    // SKU split
+    if (!r.ok.length) {
+      $('split-body').innerHTML = '<tr><td class="empty" colspan="7">No complete SKU rows yet.</td></tr>';
+      $('split-foot').innerHTML = '';
+    } else {
+      $('split-body').innerHTML = r.ok.map(function(row){
+        return '<tr><td>' + esc(row.name) + '</td><td>' + f0.format(row.qty) + '</td><td>' + f2.format(row.cbm) + '</td><td>' +
+          f0.format(row.kg) + '</td><td>' + f1.format(row.share * 100) + '%</td><td>' + f2.format(row.freight) +
+          '</td><td class="pc">' + f2.format(row.perCase) + '</td></tr>';
+      }).join('');
+      $('split-foot').innerHTML = '<tr><td>Total</td><td>' + f0.format(r.cases) + '</td><td>' + f2.format(r.cbm) + '</td><td>' +
+        f0.format(r.kg) + '</td><td>100.0%</td><td>' + f2.format(r.rate) + '</td><td>' + f2.format(r.perCase) + '</td></tr>';
+    }
+
+    // example / undo note
+    var note = $('sku-note');
+    if (undoSnapshot) {
+      note.hidden = false; $('sku-note-text').textContent = 'SKU rows cleared.'; $('btn-undo').hidden = false;
+    } else if (state.example) {
+      note.hidden = false; $('sku-note-text').textContent = 'Example SKUs are loaded to show the results. Select Clear all to enter your own.'; $('btn-undo').hidden = true;
+    } else { note.hidden = true; }
+  }
+
+  function setType(mode, id){
+    state.mode = mode; state.ctype = id; state.cap = ''; state.pay = '';
+    var c = spec(); state.ctype = c.id;
+    $('cap-cbm').value = c.cbm; $('cap-kg').value = c.payload;
+  }
+
+  function onInput(e){
+    var t = e.target, id = t.id || '';
+    if (t.name === 'mode') { setType(t.value, DEFAULT_TYPE[t.value]); buildTypes(); }
+    else if (t.name === 'ctype') { setType(state.mode, t.value); }
+    else if (t.name === 'dimunit') { state.dimUnit = t.value; }
+    else if (t.name === 'wtunit') { state.wtUnit = t.value; }
+    else if (t.name === 'basis') { state.basis = t.value; }
+    else if (id === 'cap-cbm' || id === 'cap-kg') {
+      var c = spec();
+      state.cap = parseFloat($('cap-cbm').value) === c.cbm ? '' : $('cap-cbm').value;
+      state.pay = parseFloat($('cap-kg').value) === c.payload ? '' : $('cap-kg').value;
+    }
+    else if (id === 'rate-range') { state.rate = +t.value; $('rate-num').value = state.rate; }
+    else if (id === 'rate-num') {
+      var v = parseFloat(t.value); v = isFinite(v) ? Math.min(Math.max(v, 0), RATE_MAX) : 0;
+      state.rate = v; $('rate-range').value = v;
+    }
+    else if (id.indexOf('sku') === 0) { readSkus(); state.example = false; undoSnapshot = null; }
+    else return;
+    render(); save();
+  }
+
+  function start(){
+    load(); buildRows(); buildTypes(); writeInputs(); render();
+    document.addEventListener('input', onInput);
+    $('rate-num').addEventListener('blur', function(){ $('rate-num').value = state.rate; });
+    $('btn-clear').addEventListener('click', function(){
+      readSkus();
+      var had = state.skus.some(function(s){ return FIELDS.some(function(k){ return s[k] !== ''; }); });
+      undoSnapshot = had ? {skus:state.skus, example:state.example} : null;
+      state.skus = blankSkus(); state.example = false;
+      writeInputs(); render(); save();
+      $('sku1-name').focus();
+    });
+    $('btn-undo').addEventListener('click', function(){
+      if (!undoSnapshot) return;
+      state.skus = undoSnapshot.skus; state.example = undoSnapshot.example; undoSnapshot = null;
+      writeInputs(); render(); save();
+    });
+    $('btn-reset-spec').addEventListener('click', function(){
+      setType(state.mode, state.ctype); render(); save();
+    });
+  }
+  start();
+})();
+</script>
+</body>
+</html>
