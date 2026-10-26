@@ -211,6 +211,11 @@ circle.lc-zonept{fill:var(--navy)}
 .diffs p{margin:0;color:#BFD0E3;font-size:1rem}
 .focus{font:600 1.125rem/1.5 var(--serif);color:var(--navy);max-width:40rem;margin:32px 0 0;padding-left:18px;border-left:3px solid var(--cobalt)}
 
+/* Photos */
+.photo{margin:0 0 32px}
+.photo img{display:block;width:100%;height:auto;border-radius:2px;background:var(--sky)}
+.photo figcaption{margin-top:10px;font-size:.875rem;line-height:1.5;color:var(--slate)}
+
 /* Heritage */
 .heritage{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6fr);gap:clamp(32px,6vw,96px);align-items:start}
 .heritage p{font-size:1.125rem;line-height:1.65}
