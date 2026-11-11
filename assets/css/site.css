@@ -75,6 +75,7 @@ a:hover{color:var(--cobalt-dark);text-decoration-thickness:2px}
 .brand-mark .d{color:var(--charcoal)}
 .brand-name{font:500 1.125rem/1 "IBM Plex Sans",Arial,sans-serif;letter-spacing:.005em;margin-top:2px}
 .brand img{display:block;height:34px;width:auto}
+.brand-zh{margin-left:.6rem;padding-left:.6rem;border-left:1px solid currentColor;font:500 .9375rem/1.2 var(--cjk)}
 .nav{display:flex;align-items:center;gap:clamp(16px,1.6vw,26px)}
 .nav>a,.nav-trigger{color:var(--ink);font:500 .9688rem/1 var(--sans);text-decoration:none;background:none;border:0;padding:8px 0;cursor:pointer}
 .nav>a:hover,.nav-trigger:hover{color:var(--cobalt)}
@@ -426,6 +427,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   body{font-size:1rem}
   .brand img{height:30px}
   .brand-name{font-size:.9688rem}
+  .brand-zh{display:block;margin:3px 0 0;padding:0;border:0;font-size:.75rem}
   .steps,.steps--3,.steps--6,.solutions,.diffs{grid-template-columns:1fr}
   .fgrid,.choices{grid-template-columns:1fr}
   .dlist div,.markets li{grid-template-columns:1fr}
