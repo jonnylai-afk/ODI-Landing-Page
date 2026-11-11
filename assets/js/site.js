@@ -57,7 +57,11 @@
   }
 
   // Inquiry forms (Formspree)
-  var T = zh ? {
+  var hans = (doc.documentElement.lang || '').indexOf('zh-Hans') === 0;
+  var T = hans ? {
+    sending: '正在发送…',
+    failed: '咨询未能发送。请检查网络连接后再试，或直接发送电子邮件至 info@odinter.com。'
+  } : zh ? {
     sending: '正在發送…',
     failed: '查詢未能發送。請檢查網絡連線後再試，或直接電郵 info@odinter.com。'
   } : {

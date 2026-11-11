@@ -65,3 +65,13 @@ main{overflow-x:clip}
 }
 }
 @media print{.hm-progress,.hm-ticker-wrap{display:none}}
+/* Right-to-left pages */
+@keyframes hm-ticker-rtl{to{transform:translateX(50%)}}
+@keyframes hm-slide-rtl{from{opacity:0;translate:40px 0}to{opacity:1;translate:0 0}}
+[dir=rtl] .hm-grow,[dir=rtl] .hm-progress{transform-origin:right center !important}
+[dir=rtl] .hm-ltr .hm-grow{transform-origin:left center !important}
+[dir=rtl] .hm-chev,[dir=rtl] .hm-dir{scale:-1 1}
+[dir=rtl] .hm-row:hover .hm-chev{transform:translateX(-6px)}
+[dir=rtl] .hm-under{background-position:100% 100% !important}
+[dir=rtl] .hm-ticker,[dir=rtl] .hm-ticker-rev{animation-name:hm-ticker-rtl}
+.js-motion[dir=rtl] .hm-sl.in{animation-name:hm-slide-rtl}
